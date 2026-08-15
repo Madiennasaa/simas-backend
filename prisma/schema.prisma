@@ -1,0 +1,470 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================
+// UTILS & ROLES
+// =========================================
+
+enum Role {
+  admin
+  teacher
+  student
+  parent
+  headmaster
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique @db.VarChar(50)
+  password     String   @db.VarChar(255)
+  name         String   @db.VarChar(100)
+  role         Role
+  phoneNumber  String?  @map("phone_number") @db.VarChar(15)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  student  Student?
+  teacher  Teacher?
+  parent   Parent?
+
+  @@map("users")
+}
+
+enum Semester {
+  odd
+  even
+}
+
+model AcademicYear {
+  id       Int      @id @default(autoincrement())
+  year     String   @db.VarChar(10) // '2025/2026'
+  semester Semester
+  isActive Boolean  @default(true) @map("is_active")
+  isLocked Boolean  @default(false) @map("is_locked")
+
+  classSubjects       ClassSubject[]
+  reportCards         ReportCard[]
+  studentClassHistory StudentClassHistory[]
+
+  @@map("academic_years")
+}
+
+enum Phase {
+  A
+  B
+  C
+  D
+  E
+  F
+}
+
+model Class {
+  id                Int    @id @default(autoincrement())
+  className         String @map("class_name") @db.VarChar(20) // '1-A'
+  gradeLevel        Int    @map("grade_level")
+  phase             Phase  @default(A)
+  homeroomTeacherId Int?   @map("homeroom_teacher_id")
+
+  homeroomTeacher     Teacher?              @relation(fields: [homeroomTeacherId], references: [id])
+  students            Student[]
+  classSubjects       ClassSubject[]
+  reportCards         ReportCard[]
+  studentClassHistory StudentClassHistory[]
+
+  @@map("classes")
+}
+
+// =========================================
+// AKTOR DETAIL
+// =========================================
+
+model Student {
+  id       Int    @id @default(autoincrement())
+  userId   Int    @unique @map("user_id")
+  nisn     String @unique @db.VarChar(20)
+  classId  Int    @map("class_id")
+
+  user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  class            Class                  @relation(fields: [classId], references: [id])
+  parents          ParentStudent[]
+  attendances      Attendance[]
+  grades           Grade[]
+  quizAnswers      StudentQuizAnswer[]
+  reportCards      ReportCard[]
+  classHistory     StudentClassHistory[]
+
+  @@map("students")
+}
+
+enum TeacherType {
+  homeroom
+  subject_specialist
+}
+
+model Teacher {
+  id          Int         @id @default(autoincrement())
+  userId      Int         @unique @map("user_id")
+  nip         String?     @unique @db.VarChar(30)
+  teacherType TeacherType @map("teacher_type")
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classSubjects      ClassSubject[]
+  homeroomOfClasses  Class[]
+  reportCardsSignedAsTeacher   ReportCard[] @relation("SignedByTeacher")
+  reportCardsSignedAsHeadmaster ReportCard[] @relation("SignedByHeadmaster")
+
+  @@map("teachers")
+}
+
+model Parent {
+  id     Int @id @default(autoincrement())
+  userId Int @unique @map("user_id")
+
+  user     User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  children ParentStudent[]
+
+  @@map("parents")
+}
+
+model ParentStudent {
+  parentId  Int @map("parent_id")
+  studentId Int @map("student_id")
+
+  parent  Parent  @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+  @@map("parent_students")
+}
+
+// =========================================
+// MAPEL & PLOTTING GURU
+// =========================================
+
+enum SubjectType {
+  general
+  mulok
+}
+
+model Subject {
+  id          Int         @id @default(autoincrement())
+  subjectName String      @map("subject_name") @db.VarChar(50)
+  type        SubjectType
+  kkm         Decimal     @default(70) @db.Decimal(5, 2)
+
+  classSubjects      ClassSubject[]
+  reportCardDetails  ReportCardDetail[]
+
+  @@map("subjects")
+}
+
+model ClassSubject {
+  id             Int @id @default(autoincrement())
+  classId        Int @map("class_id")
+  subjectId      Int @map("subject_id")
+  teacherId      Int @map("teacher_id")
+  academicYearId Int @map("academic_year_id")
+
+  class        Class        @relation(fields: [classId], references: [id])
+  subject      Subject      @relation(fields: [subjectId], references: [id])
+  teacher      Teacher      @relation(fields: [teacherId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  schedules   Schedule[]
+  materials   Material[]
+  assignments Assignment[]
+  attendances Attendance[]
+  grades      Grade[]
+  quizzes     Quiz[]
+
+  @@map("class_subjects")
+}
+
+// =========================================
+// JADWAL, MATERI & TUGAS
+// =========================================
+
+enum Day {
+  senin
+  selasa
+  rabu
+  kamis
+  jumat
+  sabtu
+}
+
+model Schedule {
+  id             Int   @id @default(autoincrement())
+  classSubjectId Int   @map("class_subject_id")
+  day            Day
+  startTime      DateTime @map("start_time") @db.Time()
+  endTime        DateTime @map("end_time") @db.Time()
+
+  classSubject ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+
+  @@map("schedules")
+}
+
+model Material {
+  id             Int      @id @default(autoincrement())
+  classSubjectId Int      @map("class_subject_id")
+  title          String   @db.VarChar(150)
+  description    String?  @db.Text
+  linkUrl        String   @map("link_url") @db.VarChar(255)
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  classSubject ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+
+  @@map("materials")
+}
+
+model Assignment {
+  id             Int       @id @default(autoincrement())
+  classSubjectId Int       @map("class_subject_id")
+  title          String    @db.VarChar(150)
+  description    String?   @db.Text
+  attachmentUrl  String?   @map("attachment_url") @db.VarChar(255)
+  dueDate        DateTime? @map("due_date")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  classSubject ClassSubject @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+  grades       Grade[]
+
+  @@map("assignments")
+}
+
+// =========================================
+// ABSENSI & NILAI
+// =========================================
+
+enum AttendanceStatus {
+  hadir
+  sakit
+  izin
+  alpha
+}
+
+model Attendance {
+  id             Int              @id @default(autoincrement())
+  studentId      Int              @map("student_id")
+  classSubjectId Int              @map("class_subject_id")
+  date           DateTime         @db.Date
+  status         AttendanceStatus
+  proofUrl       String?          @map("proof_url") @db.VarChar(255) // link foto surat di GDrive
+  note           String?          @db.Text
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  classSubject ClassSubject @relation(fields: [classSubjectId], references: [id])
+
+  @@map("attendances")
+}
+
+enum ScoreType {
+  task_manual
+  cbt
+  uts
+  uas
+}
+
+model Grade {
+  id             Int       @id @default(autoincrement())
+  studentId      Int       @map("student_id")
+  classSubjectId Int       @map("class_subject_id")
+  assignmentId   Int?      @map("assignment_id")
+  scoreType      ScoreType @map("score_type")
+  score          Decimal   @db.Decimal(5, 2)
+  note           String?   @db.VarChar(100)
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  classSubject ClassSubject @relation(fields: [classSubjectId], references: [id])
+  assignment   Assignment?  @relation(fields: [assignmentId], references: [id])
+
+  @@map("grades")
+}
+
+// =========================================
+// FITUR CBT
+// =========================================
+
+enum QuizType {
+  daily
+  uts
+  uas
+}
+
+model Quiz {
+  id               Int      @id @default(autoincrement())
+  classSubjectId   Int      @map("class_subject_id")
+  title            String   @db.VarChar(150)
+  type             QuizType
+  durationMinutes  Int      @map("duration_minutes")
+
+  classSubject ClassSubject       @relation(fields: [classSubjectId], references: [id], onDelete: Cascade)
+  questions    Question[]
+  answers      StudentQuizAnswer[]
+
+  @@map("quizzes")
+}
+
+enum AnswerOption {
+  a
+  b
+  c
+  d
+}
+
+model Question {
+  id             Int          @id @default(autoincrement())
+  quizId         Int          @map("quiz_id")
+  questionText   String       @map("question_text") @db.Text
+  optionA        String       @map("option_a") @db.Text
+  optionB        String       @map("option_b") @db.Text
+  optionC        String       @map("option_c") @db.Text
+  optionD        String       @map("option_d") @db.Text
+  correctAnswer  AnswerOption @map("correct_answer")
+
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@map("questions")
+}
+
+model StudentQuizAnswer {
+  id          Int      @id @default(autoincrement())
+  studentId   Int      @map("student_id")
+  quizId      Int      @map("quiz_id")
+  score       Decimal  @db.Decimal(5, 2)
+  completedAt DateTime @default(now()) @map("completed_at")
+
+  student Student @relation(fields: [studentId], references: [id])
+  quiz    Quiz    @relation(fields: [quizId], references: [id])
+
+  @@map("student_quiz_answers")
+}
+
+// =========================================
+// PENGUMUMAN
+// =========================================
+
+enum TargetRole {
+  all
+  teacher
+  student
+  parent
+}
+
+model Announcement {
+  id         Int        @id @default(autoincrement())
+  title      String     @db.VarChar(150)
+  content    String     @db.Text
+  targetRole TargetRole @default(all) @map("target_role")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  @@map("announcements")
+}
+
+// =========================================
+// PROFIL SEKOLAH
+// =========================================
+
+model SchoolProfile {
+  id              Int     @id @default(autoincrement())
+  schoolName      String  @map("school_name") @db.VarChar(150)
+  npsn            String? @db.VarChar(20)
+  address         String? @db.VarChar(255)
+  phone           String? @db.VarChar(20)
+  email           String? @db.VarChar(100)
+  headmasterName  String? @map("headmaster_name") @db.VarChar(100)
+  accreditation   String? @db.VarChar(5)
+  logoUrl         String? @map("logo_url") @db.VarChar(255)
+  vision          String? @db.Text
+  mission         String? @db.Text
+
+  @@map("school_profile")
+}
+
+// =========================================
+// RAPORT (Kurikulum Merdeka)
+// =========================================
+
+enum PromotionStatus {
+  naik
+  tidak_naik
+  lulus
+}
+
+model ReportCard {
+  id                       Int              @id @default(autoincrement())
+  studentId                Int              @map("student_id")
+  classId                  Int              @map("class_id")
+  academicYearId           Int              @map("academic_year_id")
+  phase                    Phase
+
+  totalHadir  Int @default(0) @map("total_hadir")
+  totalSakit  Int @default(0) @map("total_sakit")
+  totalIzin   Int @default(0) @map("total_izin")
+  totalAlpha  Int @default(0) @map("total_alpha")
+
+  homeroomNote     String?          @map("homeroom_note") @db.Text
+  promotionStatus  PromotionStatus? @map("promotion_status")
+
+  signedByTeacherId    Int?      @map("signed_by_teacher_id")
+  signedByHeadmasterId Int?      @map("signed_by_headmaster_id")
+  printedAt            DateTime? @map("printed_at") @db.Date
+
+  student      Student      @relation(fields: [studentId], references: [id])
+  class        Class        @relation(fields: [classId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+  signedByTeacher    Teacher? @relation("SignedByTeacher", fields: [signedByTeacherId], references: [id])
+  signedByHeadmaster Teacher? @relation("SignedByHeadmaster", fields: [signedByHeadmasterId], references: [id])
+
+  details ReportCardDetail[]
+  p3      ReportCardP3[]
+
+  @@unique([studentId, academicYearId], name: "unique_report")
+  @@map("report_cards")
+}
+
+model ReportCardDetail {
+  id                      Int     @id @default(autoincrement())
+  reportCardId            Int     @map("report_card_id")
+  subjectId               Int     @map("subject_id")
+  finalScore               Decimal @map("final_score") @db.Decimal(5, 2)
+  achievedCompetency      String? @map("achieved_competency") @db.Text
+  needsSupportCompetency  String? @map("needs_support_competency") @db.Text
+
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+  subject    Subject    @relation(fields: [subjectId], references: [id])
+
+  @@unique([reportCardId, subjectId], name: "unique_subject_per_report")
+  @@map("report_card_details")
+}
+
+model ReportCardP3 {
+  id            Int     @id @default(autoincrement())
+  reportCardId  Int     @map("report_card_id")
+  dimension     String  @db.VarChar(50) // 'Mandiri', 'Bergotong Royong', dst
+  description   String? @db.Text
+
+  reportCard ReportCard @relation(fields: [reportCardId], references: [id], onDelete: Cascade)
+
+  @@map("report_card_p3")
+}
+
+model StudentClassHistory {
+  id             Int @id @default(autoincrement())
+  studentId      Int @map("student_id")
+  classId        Int @map("class_id")
+  academicYearId Int @map("academic_year_id")
+
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class        Class        @relation(fields: [classId], references: [id])
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  @@unique([studentId, academicYearId], name: "unique_student_per_year")
+  @@map("student_class_history")
+}
