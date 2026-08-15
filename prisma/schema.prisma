@@ -261,6 +261,7 @@ model Attendance {
   student      Student      @relation(fields: [studentId], references: [id])
   classSubject ClassSubject @relation(fields: [classSubjectId], references: [id])
 
+  @@unique([studentId, classSubjectId, date], name: "unique_attendance_per_day")
   @@map("attendances")
 }
 

@@ -3,8 +3,12 @@ const prisma = require("../config/db");
 // Guru input absensi untuk satu class_subject di tanggal tertentu.
 // Dikirim sekaligus per kelas (array siswa), bukan satu-satu, biar hemat request dari Flutter.
 async function bulkCreate(classSubjectId, date, records) {
-  // Pastikan class_subject ini memang diampu guru yang login, dicek di controller.
-  // Pastikan semester belum di-lock.
+  if (!records || records.length === 0) {
+    const err = new Error("Data absensi tidak boleh kosong");
+    err.statusCode = 400;
+    throw err;
+  }
+
   const classSubject = await prisma.classSubject.findUnique({
     where: { id: classSubjectId },
     include: { academicYear: true },
@@ -22,14 +26,48 @@ async function bulkCreate(classSubjectId, date, records) {
     throw err;
   }
 
-  // records: [{ studentId, status, note?, proofUrl? }]
-  const created = await prisma.$transaction(
+  // Validasi siswa
+  const validStudents = await prisma.student.findMany({
+    where: { classId: classSubject.classId },
+    select: { id: true },
+  });
+  const validStudentIds = new Set(validStudents.map((s) => s.id));
+
+  const invalidIds = records
+    .map((r) => r.studentId)
+    .filter((id) => !validStudentIds.has(id));
+
+  if (invalidIds.length > 0) {
+    const err = new Error(
+      `Siswa dengan ID ${invalidIds.join(", ")} bukan bagian dari kelas ini`
+    );
+    err.statusCode = 422;
+    throw err;
+  }
+
+  // Bikin ISO Date konsisten tanpa pergeseran Timezone
+  const attendanceDate = new Date(`${date}T00:00:00.000Z`);
+
+  // Upsert dengan $transaction
+  const results = await prisma.$transaction(
     records.map((r) =>
-      prisma.attendance.create({
-        data: {
+      prisma.attendance.upsert({
+        where: {
+          unique_attendance_per_day: {
+            studentId: r.studentId,
+            classSubjectId,
+            date: attendanceDate,
+          },
+        },
+        update: {
+          status: r.status,
+          note: r.note || null,
+          proofUrl: r.proofUrl || null,
+        },
+        create: {
           studentId: r.studentId,
           classSubjectId,
-          date: new Date(date),
+          date: attendanceDate,
           status: r.status,
           note: r.note || null,
           proofUrl: r.proofUrl || null,
@@ -38,7 +76,7 @@ async function bulkCreate(classSubjectId, date, records) {
     )
   );
 
-  return created;
+  return results;
 }
 
 // Dipakai siswa: lihat absensi diri sendiri

@@ -2,6 +2,16 @@ const bcrypt = require("bcrypt");
 const prisma = require("../config/db");
 const { signToken } = require("../utils/jwt");
 
+function formatUserResponse(user) {
+  const { password, student, teacher, parent, ...rest } = user;
+  return {
+    ...rest,
+    studentId: student?.id ?? null,
+    teacherId: teacher?.id ?? null,
+    parentId: parent?.id ?? null,
+  };
+}
+
 async function login(username, password) {
   const user = await prisma.user.findUnique({
     where: { username },
@@ -31,10 +41,26 @@ async function login(username, password) {
     name: user.name,
   });
 
-  // Buang password sebelum dikirim balik ke client
-  const { password: _, ...safeUser } = user;
-
-  return { token, user: safeUser };
+  return { token, user: formatUserResponse(user) };
 }
 
-module.exports = { login };
+async function getById(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      student: { include: { class: true } },
+      teacher: true,
+      parent: { include: { children: true } },
+    },
+  });
+
+  if (!user) {
+    const err = new Error("User tidak ditemukan");
+    err.statusCode = 404;
+    throw err;
+  }
+
+  return formatUserResponse(user);
+}
+
+module.exports = { login, getById }; 

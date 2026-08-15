@@ -19,7 +19,8 @@ async function login(req, res, next) {
 // GET /api/auth/me - dipakai Flutter buat cek token masih valid + ambil data user
 async function me(req, res, next) {
   try {
-    return success(res, req.user, "Data user berhasil diambil");
+    const user = await authService.getById(req.user.userId);
+    return success(res, user, "Data user berhasil diambil");
   } catch (err) {
     return next(err);
   }
