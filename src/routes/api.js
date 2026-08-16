@@ -9,14 +9,14 @@ router.use("/subjects", require("./subjectRoutes"));
 router.use("/teachers", require("./teacherRoutes"));
 router.use("/students", require("./studentRoutes"));
 router.use("/class-subjects", require("./classSubjectRoutes"));
+router.use("/schedules", require("./scheduleRoutes"));
+router.use("/materials", require("./materialRoutes"));
+router.use("/assignments", require("./assignmentRoutes"));
+router.use("/grades", require("./gradeRoutes"));
+router.use("/announcements", require("./announcementRoutes"));
 
 // Modul lain tinggal ikutin pola di atas :
-// router.use("/schedules", require("./scheduleRoutes"));
-// router.use("/materials", require("./materialRoutes"));
-// router.use("/assignments", require("./assignmentRoutes"));
-// router.use("/grades", require("./gradeRoutes"));
 // router.use("/quizzes", require("./quizRoutes"));
-// router.use("/announcements", require("./announcementRoutes"));
 // router.use("/report-cards", require("./reportCardRoutes"));
 
 module.exports = router;
