@@ -2,7 +2,9 @@ const service = require("../services/scheduleService");
 const { success, failure } = require("../utils/response");
 
 async function list(req, res, next) {
-  try { return success(res, await service.list(req.query)); } catch (err) { return next(err); }
+  try { 
+    return success(res, await service.list(req.query)); 
+  } catch (err) { return next(err); }
 }
 
 async function create(req, res, next) {
@@ -17,7 +19,10 @@ async function create(req, res, next) {
 
 async function remove(req, res, next) {
   try {
-    await service.remove(req.params.id);
+    const id = Number(req.params.id);
+    if (isNaN(id)) return failure(res, "ID jadwal tidak valid", 400);
+
+    await service.remove(id);
     return success(res, null, "Jadwal dihapus");
   } catch (err) { return next(err); }
 }
