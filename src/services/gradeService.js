@@ -39,7 +39,7 @@ async function bulkCreate(classSubjectId, scoreType, records, assignmentId) {
     records.map((r) =>
       prisma.grade.upsert({
         where: {
-          studentId_classSubjectId_scoreType_assignmentId: {
+          unique_grade_record: {
             studentId: Number(r.studentId),
             classSubjectId: cSubId,
             scoreType,
