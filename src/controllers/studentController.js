@@ -3,7 +3,8 @@ const { success, failure } = require("../utils/response");
 
 async function list(req, res, next) {
   try {
-    return success(res, await service.list(req.query.classId));
+    const classId = req.query.classId ? Number(req.query.classId) : undefined;
+    return success(res, await service.list(classId));
   } catch (err) {
     return next(err);
   }
@@ -12,9 +13,10 @@ async function list(req, res, next) {
 async function create(req, res, next) {
   try {
     const { username, password, name, nisn, classId } = req.body;
-    if (!username || !password || !name || !nisn || !classId) {
-      return failure(res, "username, password, name, nisn, classId wajib diisi", 422);
+    if (!username || !password || !name || !classId) {
+      return failure(res, "Nama, Username, Password, dan Kelas wajib diisi", 422);
     }
+    // service will validate NISN based on class grade level
     return success(res, await service.create(req.body), "Siswa berhasil ditambahkan", 201);
   } catch (err) {
     return next(err);

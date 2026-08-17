@@ -85,7 +85,7 @@ model Class {
 model Student {
   id       Int    @id @default(autoincrement())
   userId   Int    @unique @map("user_id")
-  nisn     String @unique @db.VarChar(20)
+  nisn     String? @unique @db.VarChar(20)
   classId  Int    @map("class_id")
 
   user             User                   @relation(fields: [userId], references: [id], onDelete: Cascade)

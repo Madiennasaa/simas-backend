@@ -5,7 +5,6 @@ async function list(classId) {
   return prisma.student.findMany({
     where: classId ? { classId: Number(classId) } : undefined,
     include: {
-      // ⚠️ SEMBUNYIKAN HASH PASSWORD DARI RESPONSE LIST SISWA
       user: {
         select: { id: true, username: true, name: true, role: true, phoneNumber: true },
       },
@@ -24,61 +23,95 @@ async function create(data) {
     throw err;
   }
 
-  // 2. Cek duplikasi NISN
-  const existingNisn = await prisma.student.findUnique({ where: { nisn: data.nisn } });
-  if (existingNisn) {
-    const err = new Error("NISN sudah terdaftar");
-    err.statusCode = 409;
+  // 2. Ambil info kelas untuk validasi NISN requirement
+  const klass = await prisma.class.findUnique({ where: { id: Number(data.classId) } });
+  if (!klass) {
+    const err = new Error("Kelas tidak ditemukan");
+    err.statusCode = 422;
     throw err;
+  }
+
+  // Bersihkan nilai nisn & phoneNumber
+  const cleanNisn = data.nisn && data.nisn.trim() !== "" ? data.nisn.trim() : null;
+  const cleanPhone = data.phoneNumber && data.phoneNumber.trim() !== "" ? data.phoneNumber.trim() : null;
+
+  // Jika kelas grade 2 ke atas, NISN wajib
+  if ((klass.gradeLevel ?? 0) >= 2 && !cleanNisn) {
+    const err = new Error("NISN wajib diisi untuk siswa kelas 2 ke atas");
+    err.statusCode = 422;
+    throw err;
+  }
+
+  // 3. Cek duplikasi NISN hanya jika diberikan
+  if (cleanNisn) {
+    const existingNisn = await prisma.student.findUnique({ where: { nisn: cleanNisn } });
+    if (existingNisn) {
+      const err = new Error("NISN sudah terdaftar");
+      err.statusCode = 409;
+      throw err;
+    }
   }
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  return prisma.user.create({
-    data: {
-      username: data.username,
-      password: hashedPassword,
-      name: data.name,
-      role: "student",
-      phoneNumber: data.phoneNumber || null,
-      student: {
-        create: {
-          nisn: data.nisn,
-          classId: Number(data.classId),
+  // Gunakan transaksi biar struktur balasan seragam (Object Student)
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: {
+        username: data.username,
+        password: hashedPassword,
+        name: data.name,
+        role: "student",
+        phoneNumber: cleanPhone,
+        student: {
+          create: {
+            nisn: cleanNisn,
+            classId: Number(data.classId),
+          },
         },
       },
-    },
-    include: {
-      student: true,
-    },
+      include: { student: true },
+    });
+
+    // Kembalikan format Student utuh (include user & class)
+    return tx.student.findUnique({
+      where: { id: user.student.id },
+      include: {
+        user: {
+          select: { id: true, username: true, name: true, role: true, phoneNumber: true },
+        },
+        class: true,
+      },
+    });
   });
 }
 
 async function update(studentId, data) {
   const sId = Number(studentId);
   const student = await prisma.student.findUnique({ where: { id: sId } });
-  
+
   if (!student) {
     const err = new Error("Siswa tidak ditemukan");
     err.statusCode = 404;
     throw err;
   }
 
+  const cleanNisn = data.nisn !== undefined ? (data.nisn && data.nisn.trim() !== "" ? data.nisn.trim() : null) : undefined;
+  const cleanPhone = data.phoneNumber !== undefined ? (data.phoneNumber && data.phoneNumber.trim() !== "" ? data.phoneNumber.trim() : null) : undefined;
+
   return prisma.$transaction(async (tx) => {
-    // Partial update buat User
     await tx.user.update({
       where: { id: student.userId },
       data: {
         ...(data.name && { name: data.name }),
-        ...(data.phoneNumber !== undefined && { phoneNumber: data.phoneNumber }),
+        ...(cleanPhone !== undefined && { phoneNumber: cleanPhone }),
       },
     });
 
-    // Partial update buat Student
     return tx.student.update({
       where: { id: sId },
       data: {
-        ...(data.nisn && { nisn: data.nisn }),
+        ...(cleanNisn !== undefined && { nisn: cleanNisn }),
         ...(data.classId && { classId: Number(data.classId) }),
       },
       include: {
@@ -94,14 +127,13 @@ async function update(studentId, data) {
 async function remove(studentId) {
   const sId = Number(studentId);
   const student = await prisma.student.findUnique({ where: { id: sId } });
-  
+
   if (!student) {
     const err = new Error("Siswa tidak ditemukan");
     err.statusCode = 404;
     throw err;
   }
 
-  // Menghapus User otomatis menghapus Student (Cascade Delete)
   return prisma.user.delete({ where: { id: student.userId } });
 }
 
