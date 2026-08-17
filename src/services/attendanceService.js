@@ -102,11 +102,17 @@ async function findByStudentForParent(studentId, academicYearId) {
 async function findByClassSubjectAndDate(classSubjectId, date) {
   return prisma.attendance.findMany({
     where: {
-      classSubjectId,
-      date: new Date(date),
+      classSubjectId: Number(classSubjectId),
+      date: new Date(`${date}T00:00:00.000Z`),
     },
     include: {
-      student: { include: { user: true } },
+      student: {
+        include: {
+          user: {
+            select: { id: true, username: true, name: true, phoneNumber: true },
+          },
+        },
+      },
     },
   });
 }

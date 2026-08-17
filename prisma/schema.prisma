@@ -285,6 +285,7 @@ model Grade {
   classSubject ClassSubject @relation(fields: [classSubjectId], references: [id])
   assignment   Assignment?  @relation(fields: [assignmentId], references: [id])
 
+  @@unique([studentId, classSubjectId, scoreType, assignmentId], name: "unique_grade_record")
   @@map("grades")
 }
 
