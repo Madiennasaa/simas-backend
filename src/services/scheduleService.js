@@ -6,14 +6,29 @@ async function list(filters) {
       classSubjectId: filters.classSubjectId ? Number(filters.classSubjectId) : undefined,
       classSubject: filters.classId ? { classId: Number(filters.classId) } : undefined,
     },
-    include: { classSubject: { include: { class: true, subject: true, teacher: { include: { user: true } } } } },
+    include: {
+      classSubject: {
+        include: {
+          class: true,
+          subject: true,
+          teacher: {
+            include: {
+              user: {
+                select: { id: true, username: true, name: true, phoneNumber: true },
+              },
+            },
+          },
+        },
+      },
+    },
     orderBy: [{ day: "asc" }, { startTime: "asc" }],
   });
 }
 
 async function create(data) {
-  // Cegah bentrok jadwal: guru yang sama gak boleh punya 2 jadwal di hari & jam yang tumpang tindih
-  const classSubject = await prisma.classSubject.findUnique({ where: { id: Number(data.classSubjectId) } });
+  const classSubjectId = Number(data.classSubjectId);
+  const classSubject = await prisma.classSubject.findUnique({ where: { id: classSubjectId } });
+  
   if (!classSubject) {
     const err = new Error("Kelas/mapel tidak ditemukan");
     err.statusCode = 404;
@@ -24,8 +39,10 @@ async function create(data) {
     where: { day: data.day, classSubject: { teacherId: classSubject.teacherId } },
   });
 
-  const newStart = data.startTime;
-  const newEnd = data.endTime;
+  const formatTime = (t) => (t.length === 5 ? `${t}:00` : t);
+  const newStart = formatTime(data.startTime);
+  const newEnd = formatTime(data.endTime);
+
   const isOverlap = teacherSchedules.some((s) => {
     const existingStart = s.startTime.toISOString().substr(11, 8);
     const existingEnd = s.endTime.toISOString().substr(11, 8);
@@ -40,10 +57,10 @@ async function create(data) {
 
   return prisma.schedule.create({
     data: {
-      classSubjectId: Number(data.classSubjectId),
+      classSubjectId,
       day: data.day,
-      startTime: new Date(`1970-01-01T${data.startTime}`),
-      endTime: new Date(`1970-01-01T${data.endTime}`),
+      startTime: new Date(`1970-01-01T${newStart}Z`),
+      endTime: new Date(`1970-01-01T${newEnd}Z`),
     },
   });
 }

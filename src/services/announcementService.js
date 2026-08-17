@@ -1,10 +1,12 @@
 const prisma = require("../config/db");
 
-// Filter berdasarkan target_role: 'all' selalu ditampilin ke siapa pun,
-// plus role spesifik si penanya.
 async function list(role) {
+  const whereCondition = role === "admin" 
+    ? {} 
+    : { OR: [{ targetRole: "all" }, { targetRole: role }] };
+
   return prisma.announcement.findMany({
-    where: { OR: [{ targetRole: "all" }, { targetRole: role }] },
+    where: whereCondition,
     orderBy: { createdAt: "desc" },
   });
 }

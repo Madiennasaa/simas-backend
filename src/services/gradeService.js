@@ -1,10 +1,11 @@
 const prisma = require("../config/db");
 
-// Input nilai per kelas sekaligus (mirip pola attendance), guru pilih scoreType
-// (task_manual/cbt/uts/uas). Kalau task_manual, assignmentId opsional dikaitkan.
 async function bulkCreate(classSubjectId, scoreType, records, assignmentId) {
+  const cSubId = Number(classSubjectId);
+  const assignId = assignmentId ? Number(assignmentId) : null;
+
   const classSubject = await prisma.classSubject.findUnique({
-    where: { id: classSubjectId },
+    where: { id: cSubId },
     include: { academicYear: true },
   });
 
@@ -24,8 +25,10 @@ async function bulkCreate(classSubjectId, scoreType, records, assignmentId) {
     where: { classId: classSubject.classId },
     select: { id: true },
   });
+  
   const validStudentIds = new Set(validStudents.map((s) => s.id));
   const invalidIds = records.map((r) => r.studentId).filter((id) => !validStudentIds.has(id));
+  
   if (invalidIds.length > 0) {
     const err = new Error(`Siswa dengan ID ${invalidIds.join(", ")} bukan bagian dari kelas ini`);
     err.statusCode = 422;
@@ -34,13 +37,25 @@ async function bulkCreate(classSubjectId, scoreType, records, assignmentId) {
 
   return prisma.$transaction(
     records.map((r) =>
-      prisma.grade.create({
-        data: {
-          studentId: r.studentId,
-          classSubjectId,
-          assignmentId: assignmentId || null,
+      prisma.grade.upsert({
+        where: {
+          studentId_classSubjectId_scoreType_assignmentId: {
+            studentId: Number(r.studentId),
+            classSubjectId: cSubId,
+            scoreType,
+            assignmentId: assignId,
+          },
+        },
+        update: {
+          score: Number(r.score),
+          note: r.note || null,
+        },
+        create: {
+          studentId: Number(r.studentId),
+          classSubjectId: cSubId,
+          assignmentId: assignId,
           scoreType,
-          score: r.score,
+          score: Number(r.score),
           note: r.note || null,
         },
       })
@@ -48,20 +63,36 @@ async function bulkCreate(classSubjectId, scoreType, records, assignmentId) {
   );
 }
 
-// Dipakai siswa: lihat nilai diri sendiri
 async function findByStudent(studentId, academicYearId) {
   return prisma.grade.findMany({
-    where: { studentId, classSubject: { academicYearId } },
-    include: { classSubject: { include: { subject: true } }, assignment: true },
+    where: {
+      studentId: Number(studentId),
+      ...(academicYearId && { classSubject: { academicYearId: Number(academicYearId) } }),
+    },
+    include: {
+      classSubject: { include: { subject: true } },
+      assignment: true,
+    },
     orderBy: { id: "desc" },
   });
 }
 
-// Dipakai guru: rekap nilai satu kelas/mapel per jenis nilai
 async function findByClassSubject(classSubjectId, scoreType) {
   return prisma.grade.findMany({
-    where: { classSubjectId, ...(scoreType && { scoreType }) },
-    include: { student: { include: { user: true } }, assignment: true },
+    where: {
+      classSubjectId: Number(classSubjectId),
+      ...(scoreType && { scoreType }),
+    },
+    include: {
+      student: {
+        include: {
+          user: {
+            select: { id: true, username: true, name: true, phoneNumber: true },
+          },
+        },
+      },
+      assignment: true,
+    },
     orderBy: { studentId: "asc" },
   });
 }
