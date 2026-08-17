@@ -58,7 +58,6 @@ async function main() {
     data: {
       className: '1-A',
       gradeLevel: 1,
-      phase: 'A',
       homeroomTeacherId: teacherDetail.id,
     },
   });

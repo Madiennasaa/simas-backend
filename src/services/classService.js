@@ -21,7 +21,6 @@ async function create(data) {
     data: {
       className: data.className,
       gradeLevel: Number(data.gradeLevel),
-      phase: data.phase,
       homeroomTeacherId: data.homeroomTeacherId ? Number(data.homeroomTeacherId) : null,
     },
   });
@@ -41,7 +40,7 @@ async function update(id, data) {
     data: {
       ...(data.className && { className: data.className }),
       ...(data.gradeLevel && { gradeLevel: Number(data.gradeLevel) }),
-      ...(data.phase && { phase: data.phase }),
+      // phase removed
       ...(data.homeroomTeacherId !== undefined && {
         homeroomTeacherId: data.homeroomTeacherId ? Number(data.homeroomTeacherId) : null,
       }),

@@ -40,6 +40,15 @@ enum Semester {
   even
 }
 
+enum Phase {
+  A
+  B
+  C
+  D
+  E
+  F
+}
+
 model AcademicYear {
   id       Int      @id @default(autoincrement())
   year     String   @db.VarChar(10) // '2025/2026'
@@ -54,20 +63,10 @@ model AcademicYear {
   @@map("academic_years")
 }
 
-enum Phase {
-  A
-  B
-  C
-  D
-  E
-  F
-}
-
 model Class {
   id                Int    @id @default(autoincrement())
   className         String @map("class_name") @db.VarChar(20) // '1-A'
   gradeLevel        Int    @map("grade_level")
-  phase             Phase  @default(A)
   homeroomTeacherId Int?   @map("homeroom_teacher_id")
 
   homeroomTeacher     Teacher?              @relation(fields: [homeroomTeacherId], references: [id])

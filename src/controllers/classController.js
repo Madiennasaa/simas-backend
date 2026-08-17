@@ -11,9 +11,9 @@ async function list(req, res, next) {
 
 async function create(req, res, next) {
   try {
-    const { className, gradeLevel, phase } = req.body;
-    if (!className || !gradeLevel || !phase) {
-      return failure(res, "className, gradeLevel, dan phase wajib diisi", 422);
+    const { className, gradeLevel } = req.body;
+    if (!className || !gradeLevel) {
+      return failure(res, "className dan gradeLevel wajib diisi", 422);
     }
     return success(res, await service.create(req.body), "Kelas dibuat", 201);
   } catch (err) {
