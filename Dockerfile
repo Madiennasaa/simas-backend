@@ -2,8 +2,9 @@
 FROM node:20-slim AS base
 WORKDIR /app
 
-# Prisma butuh openssl buat generate client di image slim
-RUN apt-get update -y && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+# Prisma butuh openssl buat generate client, ca-certificates buat verifikasi
+# TLS ke TiDB Cloud (image slim ini defaultnya tidak punya root CA bundle)
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && update-ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Aktifkan pnpm via corepack, dipin ke versi 9 karena pnpm versi terbaru
 # (10+) butuh Node.js 22+, sedangkan base image ini masih Node 20.
