@@ -13,12 +13,13 @@ function formatUserResponse(user) {
     className: student?.class?.className ?? null,
     teacherId: teacher?.id ?? null,
     parentId: parent?.id ?? null,
-    // Daftar anak buat wali murid pilih mau lihat data siapa.
+    // Daftar anak buat wali murid pilih mau lihat data siapa. parent.children
+    // itu baris tabel relasi ParentStudent, datanya sendiri ada di .student.
     children: parent?.children?.map((c) => ({
-      id: c.id,
-      classId: c.classId,
-      name: c.user?.name ?? null,
-      className: c.class?.className ?? null,
+      id: c.student?.id,
+      classId: c.student?.classId,
+      name: c.student?.user?.name ?? null,
+      className: c.student?.class?.className ?? null,
     })) ?? null,
   };
 }
@@ -29,7 +30,7 @@ async function login(username, password) {
     include: {
       student: { include: { class: true } },
       teacher: true,
-      parent: { include: { children: { include: { user: true, class: true } } } },
+      parent: { include: { children: { include: { student: { include: { user: true, class: true } } } } } },
     },
   });
 
@@ -61,7 +62,7 @@ async function getById(userId) {
     include: {
       student: { include: { class: true } },
       teacher: true,
-      parent: { include: { children: { include: { user: true, class: true } } } },
+      parent: { include: { children: { include: { student: { include: { user: true, class: true } } } } } },
     },
   });
 
