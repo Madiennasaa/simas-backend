@@ -14,7 +14,12 @@ function formatUserResponse(user) {
     teacherId: teacher?.id ?? null,
     parentId: parent?.id ?? null,
     // Daftar anak buat wali murid pilih mau lihat data siapa.
-    children: parent?.children?.map((c) => ({ id: c.id, classId: c.classId })) ?? null,
+    children: parent?.children?.map((c) => ({
+      id: c.id,
+      classId: c.classId,
+      name: c.user?.name ?? null,
+      className: c.class?.className ?? null,
+    })) ?? null,
   };
 }
 
@@ -24,7 +29,7 @@ async function login(username, password) {
     include: {
       student: { include: { class: true } },
       teacher: true,
-      parent: { include: { children: true } },
+      parent: { include: { children: { include: { user: true, class: true } } } },
     },
   });
 
@@ -56,7 +61,7 @@ async function getById(userId) {
     include: {
       student: { include: { class: true } },
       teacher: true,
-      parent: { include: { children: true } },
+      parent: { include: { children: { include: { user: true, class: true } } } },
     },
   });
 
