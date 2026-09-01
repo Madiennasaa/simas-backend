@@ -35,7 +35,7 @@ async function create(data) {
 
   const hashedPassword = await bcrypt.hash(data.password, 10);
 
-  return prisma.user.create({
+  const newUser = await prisma.user.create({
     data: {
       username: data.username,
       password: hashedPassword,
@@ -51,6 +51,19 @@ async function create(data) {
     },
     include: {
       teacher: true,
+    },
+  });
+
+  // ⚠️ Balikin bentuk Teacher (bukan User) biar konsisten sama list()/update()
+  // yang dipakai Flutter — sebelumnya balikin User dengan `teacher` nested di
+  // dalam, padahal TeacherModel di Flutter ngarepin sebaliknya (`user` nested
+  // di dalam Teacher), bikin field userId/nip/teacherType null semua.
+  return prisma.teacher.findUnique({
+    where: { id: newUser.teacher.id },
+    include: {
+      user: {
+        select: { id: true, username: true, name: true, role: true, phoneNumber: true },
+      },
     },
   });
 }
