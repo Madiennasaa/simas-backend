@@ -7,8 +7,14 @@ function formatUserResponse(user) {
   return {
     ...rest,
     studentId: student?.id ?? null,
+    // Kelas siswa dibutuhkan Flutter buat filter jadwal/materi/tugas/absensi
+    // dia sendiri — sebelumnya ke-drop di sini padahal udah di-query di atas.
+    classId: student?.classId ?? null,
+    className: student?.class?.className ?? null,
     teacherId: teacher?.id ?? null,
     parentId: parent?.id ?? null,
+    // Daftar anak buat wali murid pilih mau lihat data siapa.
+    children: parent?.children?.map((c) => ({ id: c.id, classId: c.classId })) ?? null,
   };
 }
 
@@ -63,4 +69,4 @@ async function getById(userId) {
   return formatUserResponse(user);
 }
 
-module.exports = { login, getById }; 
+module.exports = { login, getById };
